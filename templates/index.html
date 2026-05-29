@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoodifyAI</title>
+
+    <link rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🎧 MoodifyAI</h1>
+    <p>Your AI Mood Music Recommender</p>
+
+    <form method="POST">
+
+        <textarea
+        name="mood_text"
+        placeholder="How are you feeling today?"
+        required></textarea>
+
+        <button type="submit">
+            Analyze Mood
+        </button>
+
+    </form>
+
+    {% if mood %}
+
+    <div class="result">
+
+        <h2>
+            Detected Mood:
+            {{ mood.upper() }}
+        </h2>
+
+        <h3>🎵 Recommended Songs</h3>
+
+        <ul>
+            {% for song in songs %}
+            <li>{{ song }}</li>
+            {% endfor %}
+        </ul>
+
+        <h3>💡 Motivational Quote</h3>
+
+        <p>{{ quote }}</p>
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+</body>
+</html>
