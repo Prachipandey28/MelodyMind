@@ -3,58 +3,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MoodifyAI</title>
-
-    <link rel="stylesheet"
-    href="{{ url_for('static', filename='style.css') }}">
+    <title>MelodyMind | AI Mood Music & Soundscapes</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Local CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
-<body>
+<body {% if mood %}data-mood="{{ mood }}"{% endif %}>
+    <!-- Dynamic Canvas Visualizer Background -->
+    <canvas id="visualizer-canvas"></canvas>
 
-<div class="container">
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <i class="fa-solid fa-compact-disc spin-slow"></i>
+                <h1>MelodyMind</h1>
+            </div>
+            <p class="subtitle">AI Mood Analysis & Procedural Soundscapes</p>
+        </header>
 
-    <h1>🎧 MoodifyAI</h1>
-    <p>Your AI Mood Music Recommender</p>
+        <!-- Mood Entry Form -->
+        <section class="card form-card">
+            <h2><i class="fa-regular fa-face-smile"></i> How is your day going?</h2>
+            <p class="card-desc">Type a sentence or a paragraph about your current state, feelings, or thoughts. Our AI will analyze your mood and curate the perfect experience.</p>
+            
+            <form method="POST" action="/">
+                <textarea
+                    name="mood_text"
+                    placeholder="E.g., I've had a busy and productive day, feeling full of energy and ready to create..."
+                    required
+                >{% if request.method == 'POST' %}{{ request.form['mood_text'] }}{% endif %}</textarea>
+                
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Analyze & Curate
+                </button>
+            </form>
+        </section>
 
-    <form method="POST">
+        <!-- Analysis & Results -->
+        {% if mood %}
+        <!-- Hidden Metadata to share Flask variables with JS -->
+        <div id="mood-metadata" data-mood="{{ mood }}" data-text="{% if request.method == 'POST' %}{{ request.form['mood_text'] }}{% endif %}"></div>
 
-        <textarea
-        name="mood_text"
-        placeholder="How are you feeling today?"
-        required></textarea>
+        <section class="card result-card animated-fade-in">
+            <div class="mood-badge-container">
+                <span class="mood-label">Detected Mood:</span>
+                <span class="mood-badge mood-{{ mood }}">
+                    {% if mood == 'happy' %}<i class="fa-solid fa-face-laugh-beam"></i> Happy
+                    {% elif mood == 'sad' %}<i class="fa-solid fa-face-sad-tear"></i> Sad
+                    {% elif mood == 'motivated' %}<i class="fa-solid fa-fire"></i> Motivated
+                    {% elif mood == 'calm' %}<i class="fa-solid fa-wind"></i> Calm
+                    {% elif mood == 'energetic' %}<i class="fa-solid fa-bolt"></i> Energetic
+                    {% endif %}
+                </span>
+            </div>
 
-        <button type="submit">
-            Analyze Mood
-        </button>
+            <!-- Procedural Synth Interface -->
+            <div class="synth-player">
+                <div class="synth-info">
+                    <h3><i class="fa-solid fa-circle-waveform-lines"></i> AI Ambient Soundscape</h3>
+                    <p>Listen to a real-time synthesized audio environment procedurally generated to match your current state.</p>
+                </div>
+                
+                <div class="synth-controls">
+                    <button id="synth-play-btn" class="btn-play">
+                        <i class="fa-solid fa-play"></i> Play Soundscape
+                    </button>
+                    <div class="volume-control">
+                        <i class="fa-solid fa-volume-low"></i>
+                        <input type="range" id="synth-volume" min="0" max="1" step="0.05" value="0.5">
+                        <i class="fa-solid fa-volume-high"></i>
+                    </div>
+                </div>
+            </div>
 
-    </form>
+            <!-- Recommended Playlist -->
+            <div class="playlist-section">
+                <h3><i class="fa-solid fa-music"></i> Recommended Playlist</h3>
+                <p class="section-desc">Handpicked tracks matching your mood. Search directly on your favorite music platform:</p>
+                
+                <div class="song-grid">
+                    {% for song in songs %}
+                    <div class="song-card">
+                        <div class="song-icon">
+                            <i class="fa-solid fa-music"></i>
+                        </div>
+                        <div class="song-info">
+                            <span class="song-title">{{ song }}</span>
+                        </div>
+                        <div class="song-links">
+                            <a href="https://open.spotify.com/search/{{ song|urlencode }}" target="_blank" title="Search on Spotify" class="music-link spotify">
+                                <i class="fa-brands fa-spotify"></i>
+                            </a>
+                            <a href="https://www.youtube.com/results?search_query={{ song|urlencode }}" target="_blank" title="Search on YouTube" class="music-link youtube">
+                                <i class="fa-brands fa-youtube"></i>
+                            </a>
+                            <a href="https://music.apple.com/us/search?term={{ song|urlencode }}" target="_blank" title="Search on Apple Music" class="music-link apple">
+                                <i class="fa-brands fa-apple"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
 
-    {% if mood %}
+            <!-- Quote Block -->
+            <div class="quote-block">
+                <i class="fa-solid fa-quote-left quote-icon"></i>
+                <blockquote>{{ quote }}</blockquote>
+            </div>
+        </section>
+        {% endif %}
 
-    <div class="result">
+        <!-- Mood Journal Timeline -->
+        <section class="card journal-card">
+            <div class="journal-header">
+                <h2><i class="fa-solid fa-book-open"></i> Your Mood Journal</h2>
+                <button id="clear-journal-btn" class="btn btn-secondary btn-sm">
+                    <i class="fa-solid fa-trash-can"></i> Clear Journal
+                </button>
+            </div>
+            <p class="card-desc">Tracks your analyzed moods locally in your browser to help you keep tabs on your emotional well-being over time.</p>
+            
+            <div id="journal-timeline" class="timeline">
+                <!-- Empty state shown via JS if no journal entries -->
+                <div class="empty-journal">
+                    <i class="fa-solid fa-feather-pointed"></i>
+                    <p>No journal entries yet. Try analyzing your mood above!</p>
+                </div>
+            </div>
+        </section>
 
-        <h2>
-            Detected Mood:
-            {{ mood.upper() }}
-        </h2>
-
-        <h3>🎵 Recommended Songs</h3>
-
-        <ul>
-            {% for song in songs %}
-            <li>{{ song }}</li>
-            {% endfor %}
-        </ul>
-
-        <h3>💡 Motivational Quote</h3>
-
-        <p>{{ quote }}</p>
-
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Made with <i class="fa-solid fa-heart beat-animation"></i> for MelodyMind &bull; Procedural audio synthesis powered by Web Audio API.</p>
+        </footer>
     </div>
 
-    {% endif %}
-
-</div>
-
+    <!-- Local JS -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

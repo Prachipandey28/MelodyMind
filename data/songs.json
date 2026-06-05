@@ -1,19 +1,27 @@
 {
-    "happy": [
-      "Happy - Pharrell Williams",
-      "On Top of the World - Imagine Dragons",
-      "Can't Stop the Feeling - Justin Timberlake"
-    ],
-  
-    "sad": [
-      "Fix You - Coldplay",
-      "Let Her Go - Passenger",
-      "Someone Like You - Adele"
-    ],
-  
-    "motivated": [
-      "Believer - Imagine Dragons",
-      "Hall of Fame - The Script",
-      "Stronger - Kanye West"
-    ]
-  }
+  "happy": [
+    "Happy - Pharrell Williams",
+    "On Top of the World - Imagine Dragons",
+    "Can't Stop the Feeling - Justin Timberlake"
+  ],
+  "sad": [
+    "Fix You - Coldplay",
+    "Let Her Go - Passenger",
+    "Someone Like You - Adele"
+  ],
+  "motivated": [
+    "Believer - Imagine Dragons",
+    "Hall of Fame - The Script",
+    "Stronger - Kanye West"
+  ],
+  "calm": [
+    "Weightless - Marconi Union",
+    "Spiegel im Spiegel - Arvo Pärt",
+    "Strawberry Swing - Coldplay"
+  ],
+  "energetic": [
+    "Don't Stop Me Now - Queen",
+    "Levels - Avicii",
+    "Sandstorm - Darude"
+  ]
+}
