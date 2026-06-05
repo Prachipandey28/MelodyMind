@@ -43,6 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <p>No journal entries yet. Try analyzing your mood above!</p>
                 </div>
             `;
+            updateAnalytics([]);
             return;
         }
 
@@ -75,6 +76,76 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `;
         }).join('');
+
+        // Render statistics dashboard
+        updateAnalytics(entries);
+    }
+
+    function updateAnalytics(entries) {
+        const statsChart = document.getElementById("mood-stats-chart");
+        const insightsText = document.getElementById("mood-insights-text");
+        if (!statsChart || !insightsText) return;
+
+        if (entries.length === 0) {
+            statsChart.innerHTML = `
+                <div class="empty-journal">
+                    <p style="font-size:0.85rem; color:var(--text-muted);">No statistics available yet.</p>
+                </div>
+            `;
+            insightsText.innerText = "Start analyzing your moods to generate statistics and mental health insights.";
+            return;
+        }
+
+        const counts = { happy: 0, sad: 0, motivated: 0, calm: 0, energetic: 0 };
+        entries.forEach(e => {
+            if (counts[e.mood] !== undefined) {
+                counts[e.mood]++;
+            }
+        });
+
+        const total = entries.length;
+        const moodOrder = ["happy", "sad", "motivated", "calm", "energetic"];
+        const moodEmojis = { happy: "😊", sad: "😢", motivated: "🔥", calm: "🍃", energetic: "⚡" };
+
+        statsChart.innerHTML = moodOrder.map(mood => {
+            const count = counts[mood];
+            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+            const emoji = moodEmojis[mood];
+            return `
+                <div class="stat-row">
+                    <span class="stat-label">${emoji} ${mood}</span>
+                    <div class="stat-bar-track">
+                        <div class="stat-bar-fill bar-${mood}" style="width: ${pct}%;"></div>
+                    </div>
+                    <span class="stat-percent">${pct}%</span>
+                </div>
+            `;
+        }).join('');
+
+        // Find dominant mood
+        let maxCount = -1;
+        let dominantMood = "";
+        moodOrder.forEach(mood => {
+            if (counts[mood] > maxCount) {
+                maxCount = counts[mood];
+                dominantMood = mood;
+            }
+        });
+
+        // Dynamic insights based on dominant mood
+        const moodInsights = {
+            happy: "Your journal shows high levels of happiness recently! Keep riding this wave of positivity and spreading joy to those around you.",
+            sad: "You've been logging some sad moments lately. Remember to be gentle with yourself, take restful breaks, and let these ambient soundscapes help you process.",
+            calm: "You have been maintaining a very peaceful and serene state of mind. Excellent job keeping stress levels low and staying grounded.",
+            motivated: "You are feeling highly driven and goal-oriented right now! Direct this fire into your current projects, but don't forget to take minor breathers.",
+            energetic: "You're full of dynamic, positive energy! Use this excitement to create, express yourself, or engage in active workouts."
+        };
+
+        if (maxCount > 0) {
+            insightsText.innerText = moodInsights[dominantMood] || "Keep journaling to refine your custom mental health profile.";
+        } else {
+            insightsText.innerText = "Start analyzing your moods to generate statistics and mental health insights.";
+        }
     }
 
     function escapeHtml(text) {
@@ -112,9 +183,73 @@ document.addEventListener("DOMContentLoaded", () => {
     let activeNodes = [];
     let currentMood = document.body.getAttribute("data-mood") || "default";
 
+    // Dynamic customization parameters
+    let currentWaveform = "sine";
+    let currentBpm = 120;
+    let currentCutoff = 600;
+
+    // Track running oscillators/filters to push live tweaks
+    let runningOscillators = [];
+    let runningFilters = [];
+    let activeIntervalCallback = null;
+
     const playBtn = document.getElementById("synth-play-btn");
     const volumeSlider = document.getElementById("synth-volume");
 
+    // Synth Settings Panel selectors
+    const waveformSelect = document.getElementById("synth-waveform");
+    const bpmSlider = document.getElementById("synth-bpm");
+    const bpmVal = document.getElementById("bpm-val");
+    const cutoffSlider = document.getElementById("synth-cutoff");
+    const cutoffVal = document.getElementById("cutoff-val");
+    const settingsToggle = document.getElementById("synth-settings-toggle");
+    const settingsPanel = document.getElementById("synth-settings-panel");
+
+    // Accordion Toggle
+    if (settingsToggle && settingsPanel) {
+        settingsToggle.addEventListener("click", () => {
+            const chevron = settingsToggle.querySelector(".toggle-chevron");
+            settingsPanel.classList.toggle("open");
+            if (chevron) {
+                chevron.classList.toggle("open");
+            }
+        });
+    }
+
+    // Initialize custom slider default values on page load
+    if (waveformSelect) currentWaveform = waveformSelect.value;
+    if (bpmSlider && bpmVal) {
+        currentBpm = parseInt(bpmSlider.value);
+        bpmVal.innerText = currentBpm;
+    }
+    if (cutoffSlider && cutoffVal) {
+        currentCutoff = parseInt(cutoffSlider.value);
+        cutoffVal.innerText = currentCutoff;
+    }
+
+    // Sync Slider changes
+    if (waveformSelect) {
+        waveformSelect.addEventListener("change", (e) => {
+            currentWaveform = e.target.value;
+            updateOscillatorsWaveform();
+        });
+    }
+    if (bpmSlider && bpmVal) {
+        bpmSlider.addEventListener("input", (e) => {
+            currentBpm = parseInt(e.target.value);
+            bpmVal.innerText = currentBpm;
+            updateSynthTempo();
+        });
+    }
+    if (cutoffSlider && cutoffVal) {
+        cutoffSlider.addEventListener("input", (e) => {
+            currentCutoff = parseInt(e.target.value);
+            cutoffVal.innerText = currentCutoff;
+            updateFilterCutoff();
+        });
+    }
+
+    // Playback Listeners
     if (playBtn) {
         playBtn.addEventListener("click", () => {
             if (!isPlaying) {
@@ -165,7 +300,6 @@ document.addEventListener("DOMContentLoaded", () => {
             } else if (currentMood === "energetic") {
                 startEnergeticArps();
             } else {
-                // Fallback / default
                 startCalmDrone();
             }
         } catch (e) {
@@ -182,6 +316,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Clear intervals
         synthIntervals.forEach(clearInterval);
         synthIntervals = [];
+        activeIntervalCallback = null;
 
         // Stop direct nodes
         activeNodes.forEach(node => {
@@ -190,6 +325,8 @@ document.addEventListener("DOMContentLoaded", () => {
             } catch (e) {}
         });
         activeNodes = [];
+        runningOscillators = [];
+        runningFilters = [];
 
         // Close context
         if (audioCtx) {
@@ -199,6 +336,54 @@ document.addEventListener("DOMContentLoaded", () => {
                 analyser = null;
             });
         }
+    }
+
+    // Live binding update sweeps
+    function updateOscillatorsWaveform() {
+        runningOscillators.forEach(osc => {
+            try {
+                osc.type = currentWaveform;
+            } catch(e) {}
+        });
+    }
+
+    function updateFilterCutoff() {
+        runningFilters.forEach(filter => {
+            try {
+                filter.frequency.setValueAtTime(currentCutoff, audioCtx.currentTime);
+            } catch(e) {}
+        });
+    }
+
+    function startSequencerInterval(callback, duration) {
+        // Clear existing intervals
+        synthIntervals.forEach(clearInterval);
+        synthIntervals = [];
+
+        activeIntervalCallback = callback;
+
+        const interval = setInterval(callback, duration);
+        synthIntervals.push(interval);
+        callback(); // Initial trigger
+    }
+
+    function updateSynthTempo() {
+        if (!isPlaying || !activeIntervalCallback) return;
+        
+        let duration = 450;
+        if (currentMood === "happy") {
+            duration = (60 / currentBpm) * 900;
+        } else if (currentMood === "sad") {
+            duration = (60 / currentBpm) * 4000;
+        } else if (currentMood === "motivated") {
+            duration = (60 / currentBpm) * 560;
+        } else if (currentMood === "energetic") {
+            duration = (60 / currentBpm) * 260;
+        } else {
+            return; // Calm drone doesn't use sequencer intervals
+        }
+
+        startSequencerInterval(activeIntervalCallback, duration);
     }
 
     // --- Audio Generators ---
@@ -221,7 +406,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const noiseFilter = audioCtx.createBiquadFilter();
         noiseFilter.type = "lowpass";
-        noiseFilter.frequency.setValueAtTime(100, audioCtx.currentTime);
+        noiseFilter.frequency.setValueAtTime(currentCutoff, audioCtx.currentTime);
+        runningFilters.push(noiseFilter);
 
         const noiseGain = audioCtx.createGain();
         noiseGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
@@ -245,12 +431,13 @@ document.addEventListener("DOMContentLoaded", () => {
         waveLfo.start();
         activeNodes.push(waveLfo);
 
-        // Ambient chord: F2 (87.31Hz), C3 (130.81Hz), F3 (174.61Hz), A3 (220.00Hz), C4 (261.63Hz)
+        // Ambient chord
         const chordFreqs = [87.31, 130.81, 174.61, 220.00, 261.63];
         chordFreqs.forEach(freq => {
             const osc = audioCtx.createOscillator();
-            osc.type = "sine";
+            osc.type = currentWaveform;
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            runningOscillators.push(osc);
 
             const gainNode = audioCtx.createGain();
             gainNode.gain.setValueAtTime(0.015, audioCtx.currentTime);
@@ -285,33 +472,35 @@ document.addEventListener("DOMContentLoaded", () => {
             
             const osc = audioCtx.createOscillator();
             const osc2 = audioCtx.createOscillator();
+            const filter = audioCtx.createBiquadFilter();
             const gainNode = audioCtx.createGain();
 
-            osc.type = "sine";
+            osc.type = currentWaveform;
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
-            osc2.type = "triangle";
-            osc2.frequency.setValueAtTime(freq * 2, audioCtx.currentTime); // Octave overtone
+            osc2.type = currentWaveform;
+            osc2.frequency.setValueAtTime(freq * 2, audioCtx.currentTime);
+
+            filter.type = "lowpass";
+            filter.frequency.setValueAtTime(currentCutoff, audioCtx.currentTime);
 
             gainNode.gain.setValueAtTime(0.07, audioCtx.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1.6);
 
-            osc.connect(gainNode);
-            osc2.connect(gainNode);
+            osc.connect(filter);
+            osc2.connect(filter);
+            filter.connect(gainNode);
             gainNode.connect(masterGain);
 
             osc.start();
             osc2.start();
             
-            // Auto clean up individual chime oscillators
             osc.stop(audioCtx.currentTime + 1.7);
             osc2.stop(audioCtx.currentTime + 1.7);
         }
 
-        // Trigger every 450ms
-        const chimeInterval = setInterval(triggerChime, 450);
-        synthIntervals.push(chimeInterval);
-        triggerChime();
+        const duration = (60 / currentBpm) * 900;
+        startSequencerInterval(triggerChime, duration);
     }
 
     // 3. Sad: Melancholic piano chords
@@ -325,13 +514,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const base = baseNotes[Math.floor(Math.random() * baseNotes.length)];
             const mel = melodyNotes[Math.floor(Math.random() * melodyNotes.length)];
 
-            // Play deep warm root note
-            playPluckNode(base, 0.05, 3.5, "triangle", 350);
+            playPluckNode(base, 0.05, 3.5, currentWaveform, currentCutoff);
             
-            // Delayed play melody chord note
             setTimeout(() => {
                 if (isPlaying && audioCtx) {
-                    playPluckNode(mel, 0.035, 2.5, "sine", 600);
+                    playPluckNode(mel, 0.035, 2.5, currentWaveform, currentCutoff * 1.5);
                 }
             }, 400);
         }
@@ -359,15 +546,13 @@ document.addEventListener("DOMContentLoaded", () => {
             osc.stop(audioCtx.currentTime + duration + 0.1);
         }
 
-        const sadInterval = setInterval(triggerSadSequence, 2000);
-        synthIntervals.push(sadInterval);
-        triggerSadSequence();
+        const duration = (60 / currentBpm) * 4000;
+        startSequencerInterval(triggerSadSequence, duration);
     }
 
     // 4. Motivated: Driving bassline
     function startMotivatedBeats() {
         let step = 0;
-        // Bass pattern in A minor: A2 (110.00), C3 (130.81), G2 (98.00), F2 (87.31)
         const pattern = [
             110.00, 110.00, 110.00, 130.81,
             98.00, 98.00, 87.31, 87.31
@@ -381,12 +566,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const filter = audioCtx.createBiquadFilter();
             const gain = audioCtx.createGain();
 
-            osc.type = "sawtooth";
+            osc.type = currentWaveform;
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
             filter.type = "lowpass";
-            filter.frequency.setValueAtTime(250, audioCtx.currentTime);
-            filter.frequency.exponentialRampToValueAtTime(70, audioCtx.currentTime + 0.18);
+            filter.frequency.setValueAtTime(currentCutoff, audioCtx.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(currentCutoff * 0.3, audioCtx.currentTime + 0.18);
 
             gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.22);
@@ -398,15 +583,14 @@ document.addEventListener("DOMContentLoaded", () => {
             osc.start();
             osc.stop(audioCtx.currentTime + 0.25);
 
-            // Trigger accent melody beep
             if (step % 4 === 0) {
-                const melFreqs = [440.00, 523.25, 659.25]; // A4, C5, E5
+                const melFreqs = [440.00, 523.25, 659.25];
                 const mel = melFreqs[Math.floor(Math.random() * melFreqs.length)];
 
                 const oscMel = audioCtx.createOscillator();
                 const gainMel = audioCtx.createGain();
 
-                oscMel.type = "triangle";
+                oscMel.type = currentWaveform;
                 oscMel.frequency.setValueAtTime(mel, audioCtx.currentTime);
 
                 gainMel.gain.setValueAtTime(0.02, audioCtx.currentTime);
@@ -422,18 +606,16 @@ document.addEventListener("DOMContentLoaded", () => {
             step++;
         }
 
-        const interval = setInterval(triggerStep, 280); // ~107 BPM
-        synthIntervals.push(interval);
-        triggerStep();
+        const duration = (60 / currentBpm) * 560;
+        startSequencerInterval(triggerStep, duration);
     }
 
     // 5. Energetic: Fast electronic arpeggiator
     function startEnergeticArps() {
         let step = 0;
-        // Quick arpeggiation notes
-        const arpScale = [196.00, 220.00, 261.63, 329.63, 392.00, 440.00, 523.25, 659.25]; // G3, A3, C4, E4, G4, A4, C5, E5
+        const arpScale = [196.00, 220.00, 261.63, 329.63, 392.00, 440.00, 523.25, 659.25];
         const patterns = [
-            [1, 3, 5, 7, 6, 4, 2, 0], // Up-down
+            [1, 3, 5, 7, 6, 4, 2, 0],
             [0, 2, 4, 6, 7, 5, 3, 1],
             [0, 4, 2, 6, 1, 5, 3, 7]
         ];
@@ -451,12 +633,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const filter = audioCtx.createBiquadFilter();
             const gain = audioCtx.createGain();
 
-            osc.type = "square";
+            osc.type = currentWaveform;
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
             filter.type = "bandpass";
-            // Sweep bandpass cutoff with an LFO-like modulation based on global clock
-            const sweep = 700 + 400 * Math.sin(audioCtx.currentTime * 2.5);
+            const sweep = currentCutoff + 400 * Math.sin(audioCtx.currentTime * 2.5);
             filter.frequency.setValueAtTime(sweep, audioCtx.currentTime);
             filter.Q.setValueAtTime(3.0, audioCtx.currentTime);
 
@@ -476,9 +657,8 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        const interval = setInterval(triggerArp, 130); // ~115 BPM sixteenths
-        synthIntervals.push(interval);
-        triggerArp();
+        const duration = (60 / currentBpm) * 260;
+        startSequencerInterval(triggerArp, duration);
     }
 
 
@@ -500,7 +680,7 @@ document.addEventListener("DOMContentLoaded", () => {
         class Particle {
             constructor() {
                 this.reset();
-                this.y = Math.random() * canvas.height; // scatter initially
+                this.y = Math.random() * canvas.height;
             }
 
             reset() {
@@ -510,50 +690,46 @@ document.addEventListener("DOMContentLoaded", () => {
                 this.life = 1;
 
                 if (currentMood === "sad") {
-                    this.y = -10; // Rain starts at top
+                    this.y = -10;
                     this.speedY = Math.random() * 2.5 + 2.0;
-                    this.speedX = -0.5; // slight slant
-                    this.hue = 210 + Math.random() * 15; // Cool Blues
+                    this.speedX = -0.5;
+                    this.hue = 210 + Math.random() * 15;
                 } else if (currentMood === "happy") {
                     this.y = canvas.height + 10;
                     this.speedY = -(Math.random() * 1.5 + 0.8);
                     this.speedX = Math.random() * 0.8 - 0.4;
-                    this.hue = 42 + Math.random() * 10; // Gold/Yellow
+                    this.hue = 42 + Math.random() * 10;
                 } else if (currentMood === "motivated") {
                     this.y = canvas.height + 10;
                     this.speedY = -(Math.random() * 2.5 + 1.2);
                     this.speedX = Math.random() * 1.6 - 0.8;
-                    this.hue = 0 + Math.random() * 15; // Red/Crimson
+                    this.hue = 0 + Math.random() * 15;
                 } else if (currentMood === "calm") {
                     this.y = canvas.height + 10;
                     this.speedY = -(Math.random() * 0.5 + 0.2);
                     this.speedX = Math.random() * 0.4 - 0.2;
-                    this.hue = 155 + Math.random() * 20; // Sage Green/Emerald
+                    this.hue = 155 + Math.random() * 20;
                 } else if (currentMood === "energetic") {
                     this.y = canvas.height + 10;
                     this.speedY = -(Math.random() * 3.5 + 2.0);
                     this.speedX = Math.random() * 3.0 - 1.5;
-                    this.hue = 325 + Math.random() * 20; // Hot Pink/Magenta
+                    this.hue = 325 + Math.random() * 20;
                 } else {
-                    // Default / Purplish
                     this.y = canvas.height + 10;
                     this.speedY = -(Math.random() * 1.0 + 0.4);
                     this.speedX = Math.random() * 0.6 - 0.3;
-                    this.hue = 262 + Math.random() * 20; // Purple/Indigo
+                    this.hue = 262 + Math.random() * 20;
                 }
             }
 
             update(energy) {
-                // Boost speed and size slightly with synth energy
                 const velocityBoost = 1 + energy * 2.5;
                 this.y += this.speedY * velocityBoost;
                 this.x += this.speedX;
 
-                // Wrap boundaries
                 if (this.x < -20) this.x = canvas.width + 20;
                 if (this.x > canvas.width + 20) this.x = -20;
 
-                // Recycle offscreen
                 if (currentMood === "sad") {
                     if (this.y > canvas.height + 10) this.reset();
                 } else {
@@ -591,7 +767,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        // Animation Loop
         function animate() {
             requestAnimationFrame(animate);
 
@@ -603,7 +778,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 dataArray = new Uint8Array(bufferLength);
                 analyser.getByteFrequencyData(dataArray);
 
-                // Average energy/amplitude calculation
                 let sum = 0;
                 for (let i = 0; i < bufferLength; i++) {
                     sum += dataArray[i];
@@ -611,16 +785,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 energy = (sum / bufferLength) / 255;
             }
 
-            // Clear frame
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Update & Draw Particles
             particles.forEach(p => {
                 p.update(energy);
                 p.draw();
             });
 
-            // Draw Central Audio Waves
             if (isPlaying && dataArray) {
                 ctx.save();
                 ctx.lineWidth = 3.5;
@@ -634,8 +805,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 for (let i = 0; i < dataArray.length; i++) {
                     const value = dataArray[i] / 255;
-                    // Draw waving frequency line
-                    const offset = value * 150; // Amp scaling
+                    const offset = value * 150;
                     const y = (canvas.height / 2) + Math.sin(i * 0.12 + Date.now() * 0.005) * offset;
 
                     if (i === 0) {
@@ -648,7 +818,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 ctx.stroke();
                 ctx.restore();
             } else {
-                // Draw idle slow ambient waves in center
                 ctx.save();
                 ctx.lineWidth = 2.0;
                 ctx.strokeStyle = getMoodHexColor(currentMood);
@@ -658,7 +827,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 const sliceWidth = canvas.width / 80;
                 let x = 0;
                 for (let i = 0; i <= 80; i++) {
-                    // Slow sine drift
                     const y = (canvas.height / 2) + Math.sin(i * 0.08 + Date.now() * 0.001) * 25;
                     if (i === 0) {
                         ctx.moveTo(x, y);
@@ -673,5 +841,34 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         animate();
+    }
+
+
+    // ----------------------------------------------------
+    // 4. Guided Breathing Exercise (Calm & Sad States)
+    // ----------------------------------------------------
+    const breathCircle = document.getElementById("breath-circle");
+    const breathText = document.getElementById("breath-text");
+    
+    if (breathCircle && breathText) {
+        // Trigger breathing circle animation
+        breathCircle.classList.add("active");
+        
+        function runBreathingSequence() {
+            if (!breathText) return;
+            breathText.innerText = "Inhale";
+            
+            setTimeout(() => {
+                if (breathText) breathText.innerText = "Hold";
+            }, 4000);
+            
+            setTimeout(() => {
+                if (breathText) breathText.innerText = "Exhale";
+            }, 6000);
+        }
+        
+        // Loop breathing prompts
+        runBreathingSequence();
+        const breathingInterval = setInterval(runBreathingSequence, 10000); // 10s cycle matches CSS keyframe breatheAnim
     }
 });

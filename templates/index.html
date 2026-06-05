@@ -81,7 +81,49 @@
                         <i class="fa-solid fa-volume-high"></i>
                     </div>
                 </div>
+
+                <!-- Synth Settings Panel Accordion Toggle -->
+                <div class="synth-settings-toggle" id="synth-settings-toggle">
+                    <span><i class="fa-solid fa-sliders"></i> Customize Soundscape</span>
+                    <i class="fa-solid fa-chevron-down toggle-chevron"></i>
+                </div>
+
+                <!-- Advanced Synth Settings Panel -->
+                <div class="synth-settings-panel" id="synth-settings-panel">
+                    <div class="setting-item">
+                        <label for="synth-waveform"><i class="fa-solid fa-wave-square"></i> Waveform Timber</label>
+                        <select id="synth-waveform">
+                            <option value="sine" selected>Sine (Soft & Pure)</option>
+                            <option value="triangle">Triangle (Warm & Mellow)</option>
+                            <option value="sawtooth">Sawtooth (Bright & Edgy)</option>
+                            <option value="square">Square (Retro Chiptune)</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label for="synth-bpm"><i class="fa-solid fa-gauge-high"></i> Tempo (BPM): <span id="bpm-val">120</span></label>
+                        <input type="range" id="synth-bpm" min="60" max="180" step="5" value="120">
+                    </div>
+                    <div class="setting-item">
+                        <label for="synth-cutoff"><i class="fa-solid fa-filter"></i> Filter Cutoff: <span id="cutoff-val">600</span> Hz</label>
+                        <input type="range" id="synth-cutoff" min="100" max="2500" step="50" value="600">
+                    </div>
+                </div>
             </div>
+
+            <!-- Guided Breathing Companion (Only visible/active for Calm or Sad moods) -->
+            {% if mood == 'calm' or mood == 'sad' %}
+            <div class="breathing-companion-panel">
+                <div class="breathing-info">
+                    <h3><i class="fa-solid fa-lungs"></i> Guided Breathing Exercise</h3>
+                    <p>Relax and follow the visual guide. Synchronize your breathing to find peace.</p>
+                </div>
+                <div class="breathing-display-container">
+                    <div id="breath-circle" class="breath-circle">
+                        <span id="breath-text">Inhale</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Recommended Playlist -->
             <div class="playlist-section">
@@ -136,6 +178,23 @@
                 <div class="empty-journal">
                     <i class="fa-solid fa-feather-pointed"></i>
                     <p>No journal entries yet. Try analyzing your mood above!</p>
+                </div>
+            </div>
+
+            <!-- Journal Analytics Panel -->
+            <div class="journal-analytics-panel">
+                <h3 class="analytics-header"><i class="fa-solid fa-chart-pie"></i> Mood Journal Statistics</h3>
+                <div class="analytics-layout">
+                    <div id="mood-stats-chart" class="stats-chart-grid">
+                        <!-- Stat bars will be dynamically rendered here via JS -->
+                    </div>
+                    <div class="insights-box">
+                        <div class="insights-header">
+                            <i class="fa-solid fa-circle-info insights-icon"></i>
+                            <span>Mood Insights</span>
+                        </div>
+                        <p id="mood-insights-text">Start analyzing your moods to generate statistics and mental health insights.</p>
+                    </div>
                 </div>
             </div>
         </section>
